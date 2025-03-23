@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>排球場地報名系統</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #fef08a; /* 奶油黃 */
+        }
+        .slot-card {
+            background-color: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+        }
+        .slot-card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #1e293b;
+        }
+        .slot-card p {
+            font-size: 0.875rem;
+            color: #4b5563;
+            margin-bottom: 0.5rem;
+        }
+        .slot-card .actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+        .slot-card .full {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-yellow-100">
+    <div class="container mx-auto p-4 md:p-6">
+        <h1 class="text-2xl font-semibold text-gray-800 mb-6 text-center">排球場地報名系統</h1>
+
+        <div id="admin-section" class="mb-8 p-4 bg-white rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">管理員區塊</h2>
+            <div class="mb-4">
+                <label for="slot-time" class="block text-gray-700 text-sm font-bold mb-2">場地時間 (例如: 3/23(日)下午12:20-15:20三米線):</label>
+                <input type="text" id="slot-time" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="請輸入場地時間">
+            </div>
+            <div class="mb-4">
+                <label for="slot-limit" class="block text-gray-700 text-sm font-bold mb-2">人數限制:</label>
+                <input type="number" id="slot-limit" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="10">
+            </div>
+             <div class="mb-4">
+                <label for="slot-male-limit" class="block text-gray-700 text-sm font-bold mb-2">男生人數限制:</label>
+                <input type="number" id="slot-male-limit" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="5">
+            </div>
+            <div class="mb-4">
+                <label for="slot-female-limit" class="block text-gray-700 text-sm font-bold mb-2">女生人數限制:</label>
+                <input type="number" id="slot-female-limit" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="5">
+            </div>
+            <div class="mb-4">
+                <label for="slot-notes" class="block text-gray-700 text-sm font-bold mb-2">附註:</label>
+                <input type="text" id="slot-notes" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="可輸入場地注意事項">
+            </div>
+            <button id="add-slot" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">新增場地時間</button>
+        </div>
+
+        <div id="user-section" class="mb-8">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">使用者區塊</h2>
+            <p class="mb-4 text-gray-600">請使用 Google 帳號登入以報名場地。</p>
+            <div id="login-info" class="bg-white rounded-lg shadow-md p-4 mb-4" style="display: none;">
+                <p><span class="font-semibold text-gray-700">登入者:</span> <span id="login-name" class="text-blue-600"></span></p>
+                <p><span class="font-semibold text-gray-700">信箱:</span> <span id="login-email" class="text-blue-600"></span></p>
+                <button id="logout-button" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mt-2">登出</button>
+            </div>
+            <button id="login-button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">使用 Google 登入</button>
+        </div>
+
+        <div id="slot-list">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">可報名場次</h2>
+            </div>
+
+        <div id="my-slots" class="mt-8" style="display: none;">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">我的報名場次</h2>
+            <div id="my-slots-list">
+                </div>
+        </div>
+    </div>
+
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <script>
+        // 初始化 Google Sign-In
+        function initGoogleAuth() {
+            gapi.load('auth2', function() {
+                gapi.auth2.init({
+                    client_id: 'YOUR_CLIENT_ID.apps.googleusercontent.com', // 替換成你的 Google Client ID
+                    cookiepolicy: 'single_host_origin',
+                    scope: 'profile email',
+                }).then(function() {
+                    auth = gapi.auth2.getAuthInstance();
+                    updateSignInStatus(auth.isSignedIn.get());
+                    auth.isSignedIn.listen(updateSignInStatus);
+                });
+            });
+        }
+
+        // 登入狀態變更時更新 UI
+        function updateSignInStatus(isSignedIn) {
+            const loginButton = document.getElementById('login-button');
+            const loginInfo = document.getElementById('login-info');
+            const logoutButton = document.getElementById('logout-button');
+            const mySlotsDiv = document.getElementById('my-slots');
+
+            if (isSignedIn) {
+                const user = gapi.auth2.getAuthInstance().currentUser.get();
+                const profile = user.getBasicProfile();
+                document.getElementById('login-name').textContent = profile.getName();
+                document.getElementById('login-email').textContent = profile.getEmail();
+                loginButton.style.display = 'none';
+                loginInfo.style.display = 'block';
+                logoutButton.style.display = 'block';
+                mySlotsDiv.style.display = 'block';
+                loadMySlots(); // 載入使用者已報名場次
+            } else {
+                loginButton.style.display = 'block';
+                loginInfo.style.display = 'none';
+                logoutButton.style.display = 'none';
+                mySlotsDiv.style.display = 'none';
+                document.getElementById('my-slots-list').innerHTML = ''; // 清空我的報名場次
+            }
+        }
+
+        // 登入處理
+        function signIn() {
+            gapi.auth2.getAuthInstance().signIn();
+        }
+
+        // 登出處理
+        function signOut() {
+            gapi.auth2.getAuthInstance().signOut().then(() => {
+                console.log('User signed out.');
+                // 清空場次
+                document.getElementById('slot-list').innerHTML = '';
+                loadSlots();
+            });
+        }
+
+        // 新增場次
+        function addSlot() {
+            const time = document.getElementById('slot-time').value;
+            const limit = parseInt(document.getElementById('slot-limit').value);
+            const maleLimit = parseInt(document.getElementById('slot-male-limit').value);
+            const femaleLimit = parseInt(document.getElementById('slot-female-limit').value);
+            const notes = document.getElementById('slot-notes').value;
+
+            if (time) {
+                const newSlot = {
+                    time: time,
+                    limit: limit,
+                    maleLimit: maleLimit,
+                    femaleLimit: femaleLimit,
+                    notes: notes,
+                    signedUp: [],
+                    maleCount: 0,
+                    femaleCount: 0
+                };
+                slots.push(newSlot);
+                saveSlots();
+                loadSlots();
+                document.getElementById('slot-time').value = '';
+                document.getElementById('slot-limit').value = '10';
+                document.getElementById('slot-male-limit').value = '5';
+                document.getElementById('slot-female-limit').value = '5';
+                document.getElementById('slot-notes').value = '';
+            } else {
+                alert('請輸入場地時間');
+            }
+        }
+
+        // 報名場次
+        function signUpSlot(index) {
+            if (!gapi.auth2.getAuthInstance().isSignedIn.get()) {
+                alert('請先登入才能報名');
+                return;
+            }
+
+            const user = gapi.auth2.getAuthInstance().currentUser.get();
+            const profile = user.getBasicProfile();
+            const name = profile.getName();
+            const gender = prompt('請輸入您的性別 (男/女):').toLowerCase();
+            const nickname = prompt('請輸入您的綽號:');
+
+            if (gender !== '男' && gender !== '女') {
+                alert('性別請輸入 男 或 女');
+                return;
+            }
+
+            if (slots[index].signedUp.find(s => s.email === user.getEmail())) {
+                alert('您已報名過此場次');
+                return;
+            }
+
+            if (slots[index].signedUp.length >= slots[index].limit) {
+                alert('此場次已額滿');
+                return;
+            }
+             if (gender === '男' && slots[index].maleCount >= slots[index].maleLimit) {
+                alert('此場次男生人數已達上限');
+                return;
+            }
+
+            if (gender === '女' && slots[index].femaleCount >= slots[index].femaleLimit) {
+                alert('此場次女生人數已達上限');
+                return;
+            }
+
+            slots[index].signedUp.push({
+                email: user.getEmail(),
+                name: name,
+                gender: gender,
+                nickname: nickname
+            });
+
+            if(gender === '男') {
+                slots[index].maleCount++;
+            } else {
+                slots[index].femaleCount++;
+            }
+            saveSlots();
+            loadSlots();
+            loadMySlots();
+        }
+
+        // 取消報名
+        function cancelSignUp(index) {
+            if (!gapi.auth2.getAuthInstance().isSignedIn.get()) {
+                alert('請先登入');
+                return;
+            }
+            const user = gapi.auth2.getAuthInstance().currentUser.get();
+            const email = user.getEmail();
+
+            const slotIndex = slots.findIndex(slot => slot.signedUp.find(s => s.email === email));
+            if (slotIndex !== -1) {
+                const signedUpIndex = slots[slotIndex].signedUp.findIndex(s => s.email === email);
+                if (signedUpIndex !== -1) {
+                    const gender = slots[slotIndex].signedUp[signedUpIndex].gender;
+                    slots[slotIndex].signedUp.splice(signedUpIndex, 1); // Remove the user from the signed up list.
+
+                    if (gender === '男') {
+                         slots[slotIndex].maleCount--;
+                    } else {
+                        slots[slotIndex].femaleCount--;
+                    }
+                    saveSlots();
+                    loadSlots(); // Refresh the slots display.
+                    loadMySlots(); // Refresh the user's signed up slots.
+                    alert('已取消報名');
+                } else {
+                    alert('您未報名此場次'); // This should ideally not happen, but handle it.
+                }
+            } else {
+                alert('您未報名任何場次');
+            }
+        }
+
+        // 載入場次
+        function loadSlots() {
+            const slotList = document.getElementById('slot-list');
+            slotList.innerHTML = ''; // Clear existing slots
+
+            slots.forEach((slot, index) => {
+                const slotCard = document.createElement('div');
+                slotCard.className = 'slot-card';
+
+                const title = document.createElement('h3');
+                title.textContent = slot.time;
+
+                const info = document.createElement('p');
+                info.textContent = `人數限制: ${slot.limit} (男: ${slot.maleLimit}, 女: ${slot.femaleLimit}), 已報名: ${slot.signedUp.length} (男: ${slot.maleCount}, 女: ${slot.femaleCount})`;
+
+                const notes = document.createElement('p');
+                notes.textContent = `附註: ${slot.notes}`;
+
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'actions';
+
+                if (slot.signedUp.length < slot.limit) {
+                    const signUpButton = document.createElement('button');
+                    signUpButton.textContent = '報名';
+                    signUpButton.className = 'bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline';
+                    signUpButton.onclick = () => signUpSlot(index);
+                    actionsDiv.appendChild(signUpButton);
+                } else {
+                    const fullSpan = document.createElement('span');
+                    fullSpan.textContent = '已額滿';
+                    fullSpan.className = 'full';
+                    actionsDiv.appendChild(fullSpan);
+                }
+
+                slotCard.appendChild(title);
+                slotCard.appendChild(info);
+                slotCard.appendChild(notes);
+                slotCard.appendChild(actionsDiv);
+                slotList.appendChild(slotCard);
+            });
+        }
+
+        // 載入使用者已報名場次
+        function loadMySlots() {
+            const mySlotsList = document.getElementById('my-slots-list');
+            mySlotsList.innerHTML = ''; // Clear previous content
+            const user = gapi.auth2.getAuthInstance().currentUser.get();
+            const email = user.getEmail();
+
+            const signedUpSlots = slots.reduce((acc, slot, index) => {
+                if (slot.signedUp.find(s => s.email === email)) {
+                    acc.push({ slot: slot, index: index }); // Store both the slot and its index
+                }
+                return acc;
+            }, []);
+
+            if (signedUpSlots.length === 0) {
+                mySlotsList.innerHTML = '<p class="text-gray-500">您尚未報名任何場次</p>';
+                return;
+            }
+
+            signedUpSlots.forEach(item => { // Use the stored index
+                const slot = item.slot;
+                const index = item.index;
+                const slotCard = document.createElement('div');
+                slotCard.className = 'slot-card';
+                slotCard.innerHTML = `
+                    <h3>${slot.time}</h3>
+                    <p>您的綽號: ${slot.signedUp.find(s => s.email === email).nickname}</p>
+                    <p>您的性別: ${slot.signedUp.find(s => s.email === email).gender}</p>
+                `;
+                const cancelButton = document.createElement('button');
+                cancelButton.textContent = '取消報名';
+                cancelButton.className = 'bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mt-2';
+                cancelButton.onclick = () => cancelSignUp(index); // Use the index here
+                slotCard.appendChild(cancelButton);
+                mySlotsList.appendChild(slotCard);
+            });
+        }
+
+        // 資料持久化
+        let slots = JSON.parse(localStorage.getItem('volleyballSlots')) || [
+             {
+                time: "3/24(一)下午18:00-21:00",
+                limit: 10,
+                maleLimit: 5,
+                femaleLimit: 5,
+                notes: "自由參加",
+                signedUp: [],
+                maleCount: 0,
+                femaleCount: 0
+            },
+            {
+                time: "3/26(三)晚上20:00-22:00",
+                limit: 8,
+                maleLimit: 4,
+                femaleLimit: 4,
+                notes: "需有基礎",
+                signedUp: [],
+                maleCount: 0,
+                femaleCount: 0
+            },
+        ];
+
+        function saveSlots() {
+            localStorage.setItem('volleyballSlots', JSON.stringify(slots));
+        }
+
+        // 頁面載入時執行
+        window.onload = function() {
+            initGoogleAuth();
+            loadSlots();
+            document.getElementById('add-slot').onclick = addSlot;
+            document.getElementById('login-button').onclick = signIn;
+            document.getElementById('logout-button').onclick = signOut;
+        };
+    </script>
+</body>
+</html>
